@@ -19,6 +19,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.ny.ijk.upplayer.R;
 
@@ -27,44 +28,48 @@ import tv.danmaku.ijk.media.player.IjkMediaPlayer;
 import tv.danmaku.ijk.media.player.pragma.DebugLog;
 
 /**
- * Created by yilv on 2018/3/29.
+ * https://github.com/xongEr/ijkPlayer-Demo
+ * @author yilv
+ * copy by niuyuan on 2018/9/1.
  */
 
-public class PlayerManager {
+public class PlayerManager implements View.OnClickListener {
+
     /**
-     * 可能会剪裁,保持原视频的大小，显示在中心,当原视频的大小超过view的大小超过部分裁剪处理
+     * 可能会剪裁，保持原视频大小，显示在中心，当原视频的大小超过view的大小，超过部分裁剪处理
      */
-    public static final String SCALETYPE_FITPARENT="fitParent";
+    public static final String SCALETYPE_FITPARENT = "fitparent";
     /**
-     * 可能会剪裁,等比例放大视频，直到填满View为止,超过View的部分作裁剪处理
+     * 可能会剪裁，等比例放大视频，直到填满view为止，超过部分裁剪处理
      */
-    public static final String SCALETYPE_FILLPARENT="fillParent";
+    public static final String SCALETYPE_FILLPARENT = "fillparent";
     /**
-     * 将视频的内容完整居中显示，如果视频大于view,则按比例缩视频直到完全显示在view中
-     */
-    public static final String SCALETYPE_WRAPCONTENT="wrapContent";
+     * 将视频的内容完整居中显示，如果视频大于view，则按比例缩视频直到完全显示在view中
+     * */
+    public static final String SCALETYPE_WRAPCONTENT = "wrapContent";
+
+     /**
+     * 不剪裁，非等比例拉伸画面填满整个view
+      * */
+    public static final String SCALETYPE_FITXY = "fitXY";
     /**
-     * 不剪裁,非等比例拉伸画面填满整个View
-     */
-    public static final String SCALETYPE_FITXY="fitXY";
+     * 不剪裁，非等比例拉伸画面到16:9，并完全显示在view中
+     * */
+    public static final String SCALETYPE_16_9 = "16:9";
     /**
-     * 不剪裁,非等比例拉伸画面到16:9,并完全显示在View中
-     */
-    public static final String SCALETYPE_16_9="16:9";
-    /**
-     * 不剪裁,非等比例拉伸画面到4:3,并完全显示在View中
-     */
-    public static final String SCALETYPE_4_3="4:3";
+     * 不剪裁，非等比例拉伸画面到4:3，并完全显示在view中
+     * */
+    public static final String SCALETYPE_4_3 = "4:3";
 
     /**
      * 状态常量
      */
-    private final int STATUS_ERROR=-1;
-    private final int STATUS_IDLE=0;
-    private final int STATUS_LOADING=1;
-    private final int STATUS_PLAYING=2;
-    private final int STATUS_PAUSE=3;
-    private final int STATUS_COMPLETED=4;
+    private final int STATUS_ERROR = -1;
+    private final int STATUS_IDLE = 0;
+    private final int STATUS_LOADING = 1;
+    private final int STATUS_PLAYING = 2;
+    private final int STATUS_PAUSE = 3;
+    private final int STATUS_COMPLETED = 4;
 
     private final Activity activity;
     private final IjkVideoView videoView;
@@ -72,58 +77,65 @@ public class PlayerManager {
     public GestureDetector gestureDetector;
 
     private boolean playerSupport;
-    private boolean isLive = false;//是否为直播
+    private boolean isLive = false;//是否是直播
     private boolean fullScreenOnly;
     private boolean portrait;
 
     private final int mMaxVolume;
     private int screenWidthPixels;
     private int currentPosition;
-    private int status=STATUS_IDLE;
+    private int status = STATUS_IDLE;
     private long pauseTime;
     private String url;
 
-    private float brightness=-1;
-    private int volume=-1;
+    private float brightness = -1;
+    private int volume = -1;
     private long newPosition = -1;
-    private long defaultRetryTime=5000;
+    private long defaultRetryTime = 5000;
+
+    //播控界面控件
+    private ImageView backIv;
 
     private OrientationEventListener orientationEventListener;
     private PlayerStateListener playerStateListener;
 
-    public void setPlayerStateListener(PlayerStateListener playerStateListener) {
+    public void setPlayerStateListener(PlayerStateListener playerStateListener){
         this.playerStateListener = playerStateListener;
     }
 
-    private OnErrorListener onErrorListener=new OnErrorListener() {
+    private OnErrorListener onErrorListener = new OnErrorListener() {
         @Override
         public void onError(int what, int extra) {
+
         }
     };
 
-    private OnCompleteListener onCompleteListener=new OnCompleteListener() {
+    private OnCompleteListener onCompleteListener = new OnCompleteListener() {
         @Override
         public void onComplete() {
+
         }
     };
 
-    private OnInfoListener onInfoListener=new OnInfoListener(){
+    private OnInfoListener onInfoListener = new OnInfoListener() {
         @Override
         public void onInfo(int what, int extra) {
 
         }
     };
-    private OnControlPanelVisibilityChangeListener onControlPanelVisibilityChangeListener=new OnControlPanelVisibilityChangeListener() {
+
+    private OnControlPanelVisibilityChangeListener onControlPanelVisibilityChangeListener = new OnControlPanelVisibilityChangeListener() {
         @Override
         public void change(boolean isShowing) {
+
         }
     };
 
     /**
      * try to play when error(only for live video)
-     * @param defaultRetryTime millisecond,0 will stop retry,default is 5000 millisecond
-     */
-    public void setDefaultRetryTime(long defaultRetryTime) {
+     *@param defaultRetryTime, 0 will stop retry, default is 5000 millisecond
+     * */
+    public void setDefaultRetryTime(long defaultRetryTime){
         this.defaultRetryTime = defaultRetryTime;
     }
 
@@ -131,24 +143,24 @@ public class PlayerManager {
         try {
             IjkMediaPlayer.loadLibrariesOnce(null);
             IjkMediaPlayer.native_profileBegin("libijkplayer.so");
-            playerSupport=true;
-        } catch (Throwable e) {
-            Log.e("GiraffePlayer", "loadLibraries error", e);
+            playerSupport = true;
+        }catch (Throwable e){
+            Log.e("UpPlayer","loadLibraries error",e);
         }
-        this.activity=activity;
+        this.activity = activity;
         screenWidthPixels = activity.getResources().getDisplayMetrics().widthPixels;
 
-        videoView = (IjkVideoView) activity.findViewById(R.id.up_player_view);
+        videoView = activity.findViewById(R.id.up_player_view);
         videoView.setOnCompletionListener(new IMediaPlayer.OnCompletionListener() {
             @Override
-            public void onCompletion(IMediaPlayer mp) {
+            public void onCompletion(IMediaPlayer iMediaPlayer) {
                 statusChange(STATUS_COMPLETED);
                 onCompleteListener.onComplete();
             }
         });
         videoView.setOnErrorListener(new IMediaPlayer.OnErrorListener() {
             @Override
-            public boolean onError(IMediaPlayer mp, int what, int extra) {
+            public boolean onError(IMediaPlayer iMediaPlayer, int what, int extra) {
                 statusChange(STATUS_ERROR);
                 onErrorListener.onError(what,extra);
                 return true;
@@ -157,7 +169,7 @@ public class PlayerManager {
         videoView.setOnInfoListener(new IMediaPlayer.OnInfoListener() {
             @Override
             public boolean onInfo(IMediaPlayer mp, int what, int extra) {
-                switch (what) {
+                switch (what){
                     case IMediaPlayer.MEDIA_INFO_BUFFERING_START:
                         statusChange(STATUS_LOADING);
                         break;
@@ -165,8 +177,8 @@ public class PlayerManager {
                         statusChange(STATUS_PLAYING);
                         break;
                     case IMediaPlayer.MEDIA_INFO_NETWORK_BANDWIDTH:
-                        //显示下载速度
-//                      Toast.show("download rate:" + extra);
+                        //显示下载进度
+                        Toast.makeText(activity,"download rate:"+ extra,Toast.LENGTH_LONG).show();
                         break;
                     case IMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START:
                         statusChange(STATUS_PLAYING);
@@ -179,87 +191,24 @@ public class PlayerManager {
 
         audioManager = (AudioManager) activity.getSystemService(Context.AUDIO_SERVICE);
         mMaxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        gestureDetector = new GestureDetector(activity, new PlayerGestureListener());
+        gestureDetector = new GestureDetector(activity,new PlayGestureListener());
 
-        if (fullScreenOnly) {
+        if (fullScreenOnly){
             activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         }
-        portrait=getScreenOrientation()== ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        portrait = getScreenOrientation() == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 
-        if (!playerSupport) {
+        if (!playerSupport){
             DebugLog.e("","播放器不支持此设备");
         }
+
+        //初始化播控
+        initControlView();
     }
 
-    private void statusChange(int newStatus) {
-        status = newStatus;
-        if (!isLive && newStatus==STATUS_COMPLETED) {
-            DebugLog.d("","statusChange STATUS_COMPLETED...");
-            if (playerStateListener != null){
-                playerStateListener.onComplete();
-            }
-        }else if (newStatus == STATUS_ERROR) {
-            DebugLog.d("","statusChange STATUS_ERROR...");
-            if (playerStateListener != null){
-                playerStateListener.onError();
-            }
-        } else if(newStatus==STATUS_LOADING){
-//            $.id(R.id.app_video_loading).visible();
-            if (playerStateListener != null){
-                playerStateListener.onLoading();
-            }
-            DebugLog.d("","statusChange STATUS_LOADING...");
-        } else if (newStatus == STATUS_PLAYING) {
-            DebugLog.d("","statusChange STATUS_PLAYING...");
-            if (playerStateListener != null){
-                playerStateListener.onPlay();
-            }
-        }
-    }
-
-    public void onPause() {
-        pauseTime= System.currentTimeMillis();
-        if (status==STATUS_PLAYING) {
-            videoView.pause();
-            if (!isLive) {
-                currentPosition = videoView.getCurrentPosition();
-            }
-        }
-    }
-
-    public void onResume() {
-        pauseTime=0;
-        if (status==STATUS_PLAYING) {
-            if (isLive) {
-                videoView.seekTo(0);
-            } else {
-                if (currentPosition>0) {
-                    videoView.seekTo(currentPosition);
-                }
-            }
-            videoView.start();
-        }
-    }
-
-    public void onDestroy() {
-        orientationEventListener.disable();
-        videoView.stopPlayback();
-    }
-
-    public void play(String url) {
-        this.url = url;
-        if (playerSupport) {
-            videoView.setVideoPath(url);
-            videoView.start();
-        }
-    }
-
-    private String generateTime(long time) {
-        int totalSeconds = (int) (time / 1000);
-        int seconds = totalSeconds % 60;
-        int minutes = (totalSeconds / 60) % 60;
-        int hours = totalSeconds / 3600;
-        return hours > 0 ? String.format("%02d:%02d:%02d", hours, minutes, seconds) : String.format("%02d:%02d", minutes, seconds);
+    private void initControlView() {
+        backIv = activity.findViewById(R.id.back);
+        backIv.setOnClickListener(this);
     }
 
     private int getScreenOrientation() {
@@ -269,10 +218,10 @@ public class PlayerManager {
         int width = dm.widthPixels;
         int height = dm.heightPixels;
         int orientation;
-        // if the device's natural orientation is portrait:
-        if ((rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) && height > width ||
-                (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270) && width > height) {
-            switch (rotation) {
+        //if the device's natural orientation is portrait:
+        if ((rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) && height >width ||
+                (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270) && width > height ){
+            switch (rotation){
                 case Surface.ROTATION_0:
                     orientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
                     break;
@@ -290,10 +239,9 @@ public class PlayerManager {
                     break;
             }
         }
-        // if the device's natural orientation is landscape or if the device
-        // is square:
-        else {
-            switch (rotation) {
+        //if the device's natural orientation is landscape or if the device is square
+        else{
+            switch (rotation){
                 case Surface.ROTATION_0:
                     orientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
                     break;
@@ -314,266 +262,26 @@ public class PlayerManager {
         return orientation;
     }
 
-    /**
-     * 滑动改变声音大小
-     *
-     * @param percent
-     */
-    private void onVolumeSlide(float percent) {
-        if (volume == -1) {
-            volume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-            if (volume < 0)
-                volume = 0;
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()){
+            case R.id.back:
+                activity.finish();
+                break;
         }
-        int index = (int) (percent * mMaxVolume) + volume;
-        if (index > mMaxVolume) {
-            index = mMaxVolume;
-        } else if (index < 0){
-            index = 0;
-        }
-        // 变更声音
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, index, 0);
-        // 变更进度条
-        int i = (int) (index * 1.0 / mMaxVolume * 100);
-        String s = i + "%";
-        if (i == 0) {
-            s = "off";
-        }
-        DebugLog.d("","onVolumeSlide:"+s);
+
     }
 
-    private void onProgressSlide(float percent) {
-        long position = videoView.getCurrentPosition();
-        long duration = videoView.getDuration();
-        long deltaMax = Math.min(100 * 1000, duration - position);
-        long delta = (long) (deltaMax * percent);
-
-        newPosition = delta + position;
-        if (newPosition > duration) {
-            newPosition = duration;
-        } else if (newPosition <= 0) {
-            newPosition=0;
-            delta=-position;
-        }
-        int showDelta = (int) delta / 1000;
-        if (showDelta != 0) {
-            String text = showDelta > 0 ? ("+" + showDelta) : "" + showDelta;
-            DebugLog.d("","onProgressSlide:" + text);
-        }
-    }
-
-    /**
-     * 滑动改变亮度
-     *
-     * @param percent
-     */
-    private void onBrightnessSlide(float percent) {
-        if (brightness < 0) {
-            brightness = activity.getWindow().getAttributes().screenBrightness;
-            if (brightness <= 0.00f){
-                brightness = 0.50f;
-            }else if (brightness < 0.01f){
-                brightness = 0.01f;
-            }
-        }
-        DebugLog.d("","brightness:"+brightness+",percent:"+ percent);
-        WindowManager.LayoutParams lpa = activity.getWindow().getAttributes();
-        lpa.screenBrightness = brightness + percent;
-        if (lpa.screenBrightness > 1.0f){
-            lpa.screenBrightness = 1.0f;
-        }else if (lpa.screenBrightness < 0.01f){
-            lpa.screenBrightness = 0.01f;
-        }
-        activity.getWindow().setAttributes(lpa);
-    }
-
-    public void setFullScreenOnly(boolean fullScreenOnly) {
-        this.fullScreenOnly = fullScreenOnly;
-        tryFullScreen(fullScreenOnly);
-        if (fullScreenOnly) {
-            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        } else {
-            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
-        }
-    }
-
-    private void tryFullScreen(boolean fullScreen) {
-        if (activity instanceof AppCompatActivity) {
-            ActionBar supportActionBar = ((AppCompatActivity) activity).getSupportActionBar();
-            if (supportActionBar != null) {
-                if (fullScreen) {
-                    supportActionBar.hide();
-                } else {
-                    supportActionBar.show();
-                }
-            }
-        }
-        setFullScreen(fullScreen);
-    }
-
-    private void setFullScreen(boolean fullScreen) {
-        if (activity != null) {
-            WindowManager.LayoutParams attrs = activity.getWindow().getAttributes();
-            if (fullScreen) {
-                attrs.flags |= WindowManager.LayoutParams.FLAG_FULLSCREEN;
-                activity.getWindow().setAttributes(attrs);
-                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-            } else {
-                attrs.flags &= (~WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                activity.getWindow().setAttributes(attrs);
-                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-            }
-        }
-    }
-
-    /**
-     * <pre>
-     *     fitParent:可能会剪裁,保持原视频的大小，显示在中心,当原视频的大小超过view的大小超过部分裁剪处理
-     *     fillParent:可能会剪裁,等比例放大视频，直到填满View为止,超过View的部分作裁剪处理
-     *     wrapContent:将视频的内容完整居中显示，如果视频大于view,则按比例缩视频直到完全显示在view中
-     *     fitXY:不剪裁,非等比例拉伸画面填满整个View
-     *     16:9:不剪裁,非等比例拉伸画面到16:9,并完全显示在View中
-     *     4:3:不剪裁,非等比例拉伸画面到4:3,并完全显示在View中
-     * </pre>
-     * @param scaleType
-     */
-    public void setScaleType(String scaleType) {
-        if (SCALETYPE_FITPARENT.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_ASPECT_FIT_PARENT);
-        }else if (SCALETYPE_FILLPARENT.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_ASPECT_FILL_PARENT);
-        }else if (SCALETYPE_WRAPCONTENT.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_ASPECT_WRAP_CONTENT);
-        }else if (SCALETYPE_FITXY.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_MATCH_PARENT);
-        }else if (SCALETYPE_16_9.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_16_9_FIT_PARENT);
-        }else if (SCALETYPE_4_3.equals(scaleType)) {
-            videoView.setAspectRatio(IRenderView.AR_4_3_FIT_PARENT);
-        }
-    }
-
-    public void start() {
-        videoView.start();
-    }
-
-    public void pause() {
-        videoView.pause();
-    }
-
-    public boolean onBackPressed() {
-        if (!fullScreenOnly && getScreenOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
-            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-            return true;
-        }
-        return false;
-    }
-
-    class Query {
-        private final Activity activity;
-        private View view;
-
-        public Query(Activity activity) {
-            this.activity=activity;
-        }
-
-        public Query id(int id) {
-            view = activity.findViewById(id);
-            return this;
-        }
-
-        public Query image(int resId) {
-            if (view instanceof ImageView) {
-                ((ImageView) view).setImageResource(resId);
-            }
-            return this;
-        }
-
-        public Query visible() {
-            if (view != null) {
-                view.setVisibility(View.VISIBLE);
-            }
-            return this;
-        }
-
-        public Query gone() {
-            if (view != null) {
-                view.setVisibility(View.GONE);
-            }
-            return this;
-        }
-
-        public Query invisible() {
-            if (view != null) {
-                view.setVisibility(View.INVISIBLE);
-            }
-            return this;
-        }
-
-        public Query clicked(View.OnClickListener handler) {
-            if (view != null) {
-                view.setOnClickListener(handler);
-            }
-            return this;
-        }
-
-        public Query text(CharSequence text) {
-            if (view!=null && view instanceof TextView) {
-                ((TextView) view).setText(text);
-            }
-            return this;
-        }
-
-        public Query visibility(int visible) {
-            if (view != null) {
-                view.setVisibility(visible);
-            }
-            return this;
-        }
-
-        private void size(boolean width, int n, boolean dip){
-            if(view != null){
-                ViewGroup.LayoutParams lp = view.getLayoutParams();
-                if(n > 0 && dip){
-                    n = dip2pixel(activity, n);
-                }
-                if(width){
-                    lp.width = n;
-                }else{
-                    lp.height = n;
-                }
-                view.setLayoutParams(lp);
-            }
-        }
-
-        public void height(int height, boolean dip) {
-            size(false,height,dip);
-        }
-
-        public int dip2pixel(Context context, float n){
-            int value = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, n, context.getResources().getDisplayMetrics());
-            return value;
-        }
-
-        public float pixel2dip(Context context, float n){
-            Resources resources = context.getResources();
-            DisplayMetrics metrics = resources.getDisplayMetrics();
-            float dp = n / (metrics.densityDpi / 160f);
-            return dp;
-        }
-    }
-
-    public class PlayerGestureListener extends GestureDetector.SimpleOnGestureListener {
+    public class PlayGestureListener extends GestureDetector.SimpleOnGestureListener{
         private boolean firstTouch;
         private boolean volumeControl;
         private boolean toSeek;
 
         /**
          * 双击
-         */
+         * */
         @Override
         public boolean onDoubleTap(MotionEvent e) {
-            videoView.toggleAspectRatio();
             return true;
         }
 
@@ -585,29 +293,32 @@ public class PlayerManager {
 
         /**
          * 滑动
-         */
+         * */
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            float mOldX = e1.getX(), mOldY = e1.getY();
+            float mOldX = e1.getX(),mOldY = e1.getY();
             float deltaY = mOldY - e2.getY();
             float deltaX = mOldX - e2.getX();
-            if (firstTouch) {
+            Log.e("upplayer","mOldX: "+mOldX+"--mOldY: "+mOldY);
+            Log.e("upplayer","deltaX: "+deltaX+"--deltaY: "+deltaY);
+            if (firstTouch){
                 toSeek = Math.abs(distanceX) >= Math.abs(distanceY);
-                volumeControl=mOldX > screenWidthPixels * 0.5f;
+                volumeControl = mOldX > screenWidthPixels * 0.5f;
                 firstTouch = false;
             }
-
-            if (toSeek) {
-                if (!isLive) {
+            Log.e("upplayer","toSeek--"+toSeek);
+            if (toSeek){
+                if (!isLive){
                     onProgressSlide(-deltaX / videoView.getWidth());
+                    Log.e("upplayer","percent: "+(-deltaX / videoView.getWidth()));
                 }
-            } else {
-                float percent = deltaY / videoView.getHeight();
-                if (volumeControl) {
-                    onVolumeSlide(percent);
-                } else {
-                    onBrightnessSlide(percent);
-                }
+            }else {
+               float percent = deltaY / videoView.getHeight();
+               if (volumeControl){
+                   onVolumeSlide(percent);
+               }else {
+                   onBrightnessSlide(percent);
+               }
             }
 
             return super.onScroll(e1, e2, distanceX, distanceY);
@@ -621,18 +332,16 @@ public class PlayerManager {
 
     /**
      * is player support this device
-     * @return
-     */
-    public boolean isPlayerSupport() {
+     * */
+    public boolean isPlayerSupport(){
         return playerSupport;
     }
 
     /**
-     * 是否正在播放
-     * @return
-     */
-    public boolean isPlaying() {
-        return videoView!=null?videoView.isPlaying():false;
+     * is playing
+     * */
+    public boolean isPlaying(){
+        return videoView != null ? videoView.isPlaying() : false;
     }
 
     public void stop(){
@@ -650,53 +359,369 @@ public class PlayerManager {
         return null;
     }
 
-    /**
-     * get video duration
-     * @return
-     */
     public int getDuration(){
         return videoView.getDuration();
     }
 
-    public PlayerManager playInFullScreen(boolean fullScreen){
-        if (fullScreen) {
+    public PlayerManager playerInFullScreen(boolean fullScreen){
+        if (fullScreen){
             activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         }
         return this;
     }
 
-    public PlayerManager onError(OnErrorListener onErrorListener) {
+    private void statusChange(int newStatus) {
+        status = newStatus;
+        if (!isLive && newStatus == STATUS_COMPLETED){
+            DebugLog.d("","statusChange STATUS_COMPLETED...");
+            if (playerStateListener != null){
+                playerStateListener.onComplete();
+            }
+        }else if (newStatus == STATUS_ERROR){
+            DebugLog.d("","statusChange STATUS_ERROR...");
+            if (playerStateListener != null){
+                playerStateListener.onError();
+            }
+        }else if (newStatus == STATUS_LOADING){
+            if (playerStateListener != null){
+                playerStateListener.onLoading();
+            }
+            DebugLog.d("","statusChange STATUS_LOADING...");
+        }else if (newStatus == STATUS_PLAYING){
+            DebugLog.d("","statusChange STATUS_PLAYING...");
+            if (playerStateListener != null){
+                playerStateListener.onPlay();
+            }
+        }
+    }
+
+    private void onPause(){
+        pauseTime = System.currentTimeMillis();
+        if (status == STATUS_PLAYING){
+            videoView.pause();
+            if (!isLive){
+                currentPosition = videoView.getCurrentPosition();
+            }
+        }
+    }
+
+    public void onResume(){
+        pauseTime = 0;
+        if (status == STATUS_PLAYING){
+            if (isLive){
+                videoView.seekTo(0);
+            }else {
+                if (currentPosition > 0){
+                    videoView.seekTo(currentPosition);
+                }
+            }
+            videoView.start();
+        }
+    }
+
+    public void onDestroy(){
+        orientationEventListener.disable();
+        videoView.stopPlayback();
+    }
+
+    public void play(String url){
+        this.url = url;
+        if (playerSupport){
+            videoView.setVideoPath(url);
+            videoView.start();
+        }
+    }
+
+    private String generateTime(long time){
+        int totalSeconds = (int) (time / 1000);
+        int seconds = totalSeconds % 60;
+        int minutes = (totalSeconds / 60) % 60;
+        int hours = totalSeconds / 3600;
+        return hours > 0 ? String.format("%02d:%02d:%02d",hours,minutes,seconds) :String.format("%02d:%02d",minutes,seconds);
+    }
+
+    /**
+     * 滑动改变声音大小
+     * @param percent
+     * */
+    private void onVolumeSlide(float percent){
+        if (volume == -1){
+            volume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+            if (volume < 0){
+                volume = 0;
+            }
+        }
+        int index = (int) ((percent * mMaxVolume) + volume);
+        if (index > mMaxVolume){
+            index = mMaxVolume;
+        }else if (index < 0){
+            index = 0;
+        }
+        //变更声音
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,index,0);
+        //变更进度条
+        int i = (int) (index  * 1.0 / mMaxVolume *100);
+        String s = i +"%";
+        if (i == 0){
+            s = "off";
+        }
+        DebugLog.d("","onVolumeSlide:"+s);
+    }
+
+    /**
+     * 滑动改变播放进度
+     * @param percent
+     * */
+    private void onProgressSlide(float percent){
+        long position = videoView.getCurrentPosition();
+        long duration = videoView.getDuration();
+        long deltaMax = Math.min(100  * 1000,duration - position);
+        long delta = (long)(deltaMax * percent);
+
+        newPosition = delta + position;
+        Log.e("upplayer","position: "+position+"--duration:  "+duration+"--deltaMax:  "+deltaMax+"--delta:  "+delta+"--newPosition: "+newPosition);
+        if (newPosition > duration){
+            newPosition = duration;
+        }else if (newPosition < 0){
+            newPosition = 0;
+            delta = -position;
+        }
+
+        int showDelta = (int) (delta / 100);
+        Log.e("upplayer","showDelta: "+showDelta);
+        if (showDelta != 0){
+            String text = showDelta > 0 ? ("+"+showDelta) : "" + showDelta;
+            videoView.seekTo((int) newPosition);
+            Log.e("upplayer","onProgressSlide:" + text);
+        }
+    }
+
+    /**
+     * 滑动改变亮度
+     * @param percent
+     * */
+    private void onBrightnessSlide(float percent){
+        if (brightness < 0){
+            brightness = activity.getWindow().getAttributes().screenBrightness;
+            if (brightness <= 0.00f){
+                brightness = 0.5f;
+            }else if (brightness < 0.01f){
+                brightness = 0.01f;
+            }
+        }
+        DebugLog.d("","brightness:"+brightness+",percent:"+percent);
+        WindowManager.LayoutParams lpa = activity.getWindow().getAttributes();
+        lpa.screenBrightness = brightness + percent;
+        if (lpa.screenBrightness > 1.0f){
+            lpa.screenBrightness = 1.0f;
+        }else if (lpa.screenBrightness < 0.01f){
+            lpa.screenBrightness = 0.01f;
+        }
+        activity.getWindow().setAttributes(lpa);
+    }
+
+    public void setFullScreenOnly(boolean fullScreenOnly){
+        this.fullScreenOnly = fullScreenOnly;
+        tryFullScreen(fullScreenOnly);
+        if (fullScreenOnly){
+            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        }else {
+            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+        }
+    }
+
+    private void tryFullScreen(boolean fullScreen) {
+        if (activity instanceof AppCompatActivity){
+            ActionBar supportActionBar = ((AppCompatActivity)activity).getSupportActionBar();
+            if (supportActionBar != null){
+                if (fullScreen){
+                    supportActionBar.hide();
+                }else {
+                    supportActionBar.show();
+                }
+                setFullScreen(fullScreen);
+            }
+        }
+    }
+
+    private void setFullScreen(boolean fullScreen) {
+        if (activity != null){
+            WindowManager.LayoutParams attrs = activity.getWindow().getAttributes();
+            if (fullScreen){
+                attrs.flags |= WindowManager.LayoutParams.FLAG_FULLSCREEN;
+                activity.getWindow().setAttributes(attrs);
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            }else {
+                attrs.flags &= (~WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                activity.getWindow().setAttributes(attrs);
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            }
+        }
+    }
+
+    /**
+     * fitParent：可能会剪裁，保持原视频的大小，显示在中心，当原视频的大小超过view的大小，超过部分剪裁处理
+     * fillParent：可能会剪裁，等比例放大视频，直到填满view为止，超过view的部分作剪裁处理
+     * wrapContent：将视频的内容完整居中显示，如果视频大于view，则按比例所视频直到显示在view中
+     * fitXY：不剪裁，费等比拉伸画面填满整个view
+     * 16:9：不剪裁，飞等比例拉伸画面到16:9，并完全显示在view中
+     * 4:3：不剪裁，费等比例拉伸画面到4:3，并完全显示在view中
+     *
+     * @param scaleType
+     * */
+    public void setScaleType(String scaleType){
+        if (SCALETYPE_FITPARENT.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_ASPECT_FIT_PARENT);
+        }else if (SCALETYPE_FILLPARENT.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_ASPECT_FILL_PARENT);
+        }else if (SCALETYPE_WRAPCONTENT.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_ASPECT_WRAP_CONTENT);
+        }else if (SCALETYPE_FITXY.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_MATCH_PARENT);
+        }else if (SCALETYPE_16_9.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_16_9_FIT_PARENT);
+        }else if (SCALETYPE_4_3.equals(scaleType)){
+            videoView.setAspectRatio(IRenderView.AR_4_3_FIT_PARENT);
+        }
+    }
+
+    public void start(){
+        videoView.start();
+    }
+
+    public void pause(){
+        videoView.pause();
+    }
+
+    public boolean onBackPressed(){
+        if (!fullScreenOnly && getScreenOrientation() == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE){
+            activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        return true;
+        }
+        return false;
+    }
+
+    class Query{
+        private final Activity activity;
+        private View view;
+
+        Query(Activity activity) {
+            this.activity = activity;
+        }
+
+        public Query id(int id) {
+            view = activity.findViewById(id);
+            return this;
+        }
+
+        public Query image(int resId) {
+            if (view instanceof ImageView){
+                ((ImageView)view).setImageResource(resId);
+            }
+            return this;
+        }
+
+        public Query visible() {
+            if (view != null){
+                view.setVisibility(View.VISIBLE);
+            }
+            return this;
+        }
+
+        public Query gone() {
+            if (view != null){
+                view.setVisibility(View.GONE);
+            }
+            return this;
+        }
+
+        public Query invisible() {
+            if (view != null){
+                view.setVisibility(View.INVISIBLE);
+            }
+            return this;
+        }
+
+        public Query clicked(View.OnClickListener handler) {
+            if (view != null){
+                view.setOnClickListener(handler);
+            }
+            return this;
+        }
+
+        public Query text(CharSequence text) {
+            if (view != null && view instanceof TextView){
+                ((TextView)view).setText(text);
+            }
+            return this;
+        }
+
+        public Query visibility(int visible) {
+            if (view != null){
+                view.setVisibility(visible);
+            }
+            return this;
+        }
+
+        private void size(boolean width, int n, boolean dip) {
+            if (view != null){
+                ViewGroup.LayoutParams lp = view.getLayoutParams();
+                if (n > 0 && dip){
+                    n = dip2pixel(activity,n);
+                }
+                if (width){
+                    lp.width = n;
+                }else {
+                    lp.height = n;
+                }
+                view.setLayoutParams(lp);
+            }
+        }
+
+        public void height(int height, boolean dip){
+            size(false,height,dip);
+        }
+
+        private int dip2pixel(Context context, float n) {
+            int value = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,n,context.getResources().getDisplayMetrics());
+            return value;
+        }
+
+        private float pixel2dip(Context context, float n) {
+            Resources resources = context.getResources();
+            DisplayMetrics metrics = resources.getDisplayMetrics();
+            float dp = n / (metrics.densityDpi / 160f);
+            return dp;
+        }
+    }
+
+    public PlayerManager onError(OnErrorListener onErrorListener){
         this.onErrorListener = onErrorListener;
         return this;
     }
 
-    public PlayerManager onComplete(OnCompleteListener onCompleteListener) {
+    public PlayerManager onComplete(OnCompleteListener onCompleteListener){
         this.onCompleteListener = onCompleteListener;
         return this;
     }
 
-    public PlayerManager onInfo(OnInfoListener onInfoListener) {
+    public PlayerManager onInfo(OnInfoListener onInfoListener){
         this.onInfoListener = onInfoListener;
         return this;
     }
 
-    public PlayerManager onControlPanelVisibilityChange(OnControlPanelVisibilityChangeListener listener){
-        this.onControlPanelVisibilityChangeListener = listener;
+    public PlayerManager onControlPanelVisiblityChange(OnControlPanelVisibilityChangeListener onControlPanelVisibilityChangeListener){
+        this.onControlPanelVisibilityChangeListener = onControlPanelVisibilityChangeListener;
         return this;
     }
 
-    /**
-     * set is live (can't seek forward)
-     * @param isLive
-     * @return
-     */
-    public PlayerManager live(boolean isLive) {
+    public PlayerManager live(boolean isLive){
         this.isLive = isLive;
         return this;
     }
 
     public PlayerManager toggleAspectRatio(){
-        if (videoView != null) {
+        if (videoView != null){
             videoView.toggleAspectRatio();
         }
         return this;
@@ -717,7 +742,7 @@ public class PlayerManager {
         void onComplete();
     }
 
-    public interface OnControlPanelVisibilityChangeListener{
+    public  interface OnControlPanelVisibilityChangeListener{
         void change(boolean isShowing);
     }
 
