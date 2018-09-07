@@ -70,4 +70,7 @@
     <string name="VideoView_player_IjkMediaPlayer">Player: IjkMediaPlayer</string>
     <string name="VideoView_player_IjkExoMediaPlayer">Player: IjkExoMediaPlayer</string>
 
+    <string name="toast_at_last_video">It is already the last video</string>
+    <string name="toast_at_first_video">It is already the first video</string>
+
 </resources>

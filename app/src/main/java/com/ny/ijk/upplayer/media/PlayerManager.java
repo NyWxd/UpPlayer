@@ -18,10 +18,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.ny.ijk.upplayer.R;
+import com.ny.ijk.upplayer.application.Settings;
+
+import java.util.List;
 
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
@@ -87,14 +94,27 @@ public class PlayerManager implements View.OnClickListener {
     private int status = STATUS_IDLE;
     private long pauseTime;
     private String url;
+    private List<String> urls;
+    private int mCurrentPosition = 0;
 
     private float brightness = -1;
     private int volume = -1;
     private long newPosition = -1;
     private long defaultRetryTime = 5000;
 
-    //播控界面控件
+    //editing播控界面控件
+    private RelativeLayout topRl;
+    private LinearLayout startLl;
+    private LinearLayout bottomLl;
     private ImageView backIv;
+    private ImageView startIv;
+    private ProgressBar loadingProgressBar;
+    private ImageView lastIv;
+    private ImageView playPauseIv;
+    private ImageView nextIv;
+    private TextView currentTv;
+    private SeekBar bottomSeekBar;
+    private TextView totalTv;
 
     private OrientationEventListener orientationEventListener;
     private PlayerStateListener playerStateListener;
@@ -148,6 +168,7 @@ public class PlayerManager implements View.OnClickListener {
             Log.e("UpPlayer","loadLibraries error",e);
         }
         this.activity = activity;
+        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         screenWidthPixels = activity.getResources().getDisplayMetrics().widthPixels;
 
         videoView = activity.findViewById(R.id.up_player_view);
@@ -206,9 +227,28 @@ public class PlayerManager implements View.OnClickListener {
         initControlView();
     }
 
+    //editing
     private void initControlView() {
+        topRl = activity.findViewById(R.id.top_layout);
+        startLl = activity.findViewById(R.id.start_layout);
+        bottomLl = activity.findViewById(R.id.bottom_layout);
+        loadingProgressBar = activity.findViewById(R.id.loading);
+        currentTv = activity.findViewById(R.id.current);
+        totalTv = activity.findViewById(R.id.total);
+
+        bottomSeekBar = activity.findViewById(R.id.bottom_seek_progress);
+
         backIv = activity.findViewById(R.id.back);
+        startIv = activity.findViewById(R.id.start);
+        lastIv = activity.findViewById(R.id.last);
+        playPauseIv = activity.findViewById(R.id.play_pause);
+        nextIv = activity.findViewById(R.id.next);
+
         backIv.setOnClickListener(this);
+        startIv.setOnClickListener(this);
+        lastIv.setOnClickListener(this);
+        playPauseIv.setOnClickListener(this);
+        nextIv.setOnClickListener(this);
     }
 
     private int getScreenOrientation() {
@@ -262,14 +302,61 @@ public class PlayerManager implements View.OnClickListener {
         return orientation;
     }
 
+    //editing
     @Override
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.back:
                 activity.finish();
                 break;
+            case R.id.play_pause:
+            case R.id.start:
+                Log.e("upplayer","---status: "+status);
+                if (status == STATUS_PLAYING){
+                    startIv.setImageResource(R.mipmap.up_play_mid);
+                    playPauseIv.setImageResource(R.mipmap.up_play);
+                    statusChange(STATUS_PAUSE);
+                    videoView.pause();
+                }else if (status == STATUS_PAUSE){
+                    startIv.setImageResource(R.mipmap.up_pause_mid);
+                    playPauseIv.setImageResource(R.mipmap.up_pause);
+                    statusChange(STATUS_PLAYING);
+                    videoView.start();
+                }
+                break;
+            case R.id.last:
+                if (mCurrentPosition >= 1){
+                    mCurrentPosition --;
+                    stop();
+                    videoView.releaseWithoutStop();
+                    play(urls.get(mCurrentPosition));
+                }else if (mCurrentPosition == 0){
+                    Toast.makeText(activity,activity.getString(R.string.toast_at_first_video),Toast.LENGTH_LONG).show();
+                }else {
+                    return;
+                }
+                break;
+
+            case R.id.next:
+                if (mCurrentPosition < urls.size() - 1){
+                    mCurrentPosition ++;
+                    stop();
+                    videoView.releaseWithoutStop();
+                    videoView.createPlayer(Settings.PV_PLAYER__IjkMediaPlayer);
+                    play(urls.get(mCurrentPosition));
+                }else if (mCurrentPosition == urls.size() - 1){
+                    Toast.makeText(activity,activity.getString(R.string.toast_at_last_video),Toast.LENGTH_LONG).show();
+                }else {
+                    return;
+                }
+                break;
         }
 
+    }
+
+    public void play(List<String> urls, int defaultUrl) {
+        this.urls = urls;
+        play(urls.get(defaultUrl));
     }
 
     public class PlayGestureListener extends GestureDetector.SimpleOnGestureListener{
@@ -373,22 +460,22 @@ public class PlayerManager implements View.OnClickListener {
     private void statusChange(int newStatus) {
         status = newStatus;
         if (!isLive && newStatus == STATUS_COMPLETED){
-            DebugLog.d("","statusChange STATUS_COMPLETED...");
+            Log.d("upplayer","statusChange STATUS_COMPLETED...");
             if (playerStateListener != null){
                 playerStateListener.onComplete();
             }
         }else if (newStatus == STATUS_ERROR){
-            DebugLog.d("","statusChange STATUS_ERROR...");
+            Log.d("upplayer","statusChange STATUS_ERROR...");
             if (playerStateListener != null){
                 playerStateListener.onError();
             }
         }else if (newStatus == STATUS_LOADING){
+            Log.d("upplayer","statusChange STATUS_LOADING...");
             if (playerStateListener != null){
                 playerStateListener.onLoading();
             }
-            DebugLog.d("","statusChange STATUS_LOADING...");
         }else if (newStatus == STATUS_PLAYING){
-            DebugLog.d("","statusChange STATUS_PLAYING...");
+            Log.d("upplayer","statusChange STATUS_PLAYING...");
             if (playerStateListener != null){
                 playerStateListener.onPlay();
             }
@@ -429,6 +516,7 @@ public class PlayerManager implements View.OnClickListener {
         if (playerSupport){
             videoView.setVideoPath(url);
             videoView.start();
+            status = STATUS_PLAYING;
         }
     }
 

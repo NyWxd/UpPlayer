@@ -14,7 +14,7 @@
 
     <!-- 顶部栏 -->
         <RelativeLayout
-            android:id="@+id/layout_top"
+            android:id="@+id/top_layout"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:layout_alignParentLeft="true"
@@ -92,19 +92,21 @@
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_centerVertical="true"
-        android:layout_gravity="center_vertical">
+        android:layout_gravity="center_vertical"
+        android:visibility="visible"
+        >
 
         <ImageView
             android:id="@+id/start"
             android:layout_width="45dp"
             android:layout_height="45dp"
-            android:src="@mipmap/up_play_mid"
+            android:src="@mipmap/up_pause_mid"
             />
     </LinearLayout>
 
     <!-- 底部栏 -->
     <LinearLayout
-        android:id="@+id/layout_bottom"
+        android:id="@+id/bottom_layout"
         android:layout_width="match_parent"
         android:layout_height="57dp"
         android:layout_alignParentBottom="true"
@@ -192,5 +194,15 @@
             android:scaleType="centerInside"
             android:src="@mipmap/up_enlarge" />
     </LinearLayout>
+
+    <!-- 加载中进度条 -->
+    <ProgressBar
+        android:id="@+id/loading"
+        android:layout_width="45dp"
+        android:layout_height="62dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:indeterminateDrawable="@drawable/up_loading"
+        android:visibility="invisible" />
 
 </RelativeLayout>

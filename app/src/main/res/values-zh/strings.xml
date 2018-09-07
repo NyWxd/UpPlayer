@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="toast_at_last_video">已经是最后一条视频了</string>
+    <string name="toast_at_first_video">已经是第一条视频了</string>
+</resources>
