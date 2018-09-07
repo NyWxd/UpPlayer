@@ -24,7 +24,6 @@ public class MainActivity extends AppCompatActivity {
     private String url_1 = "http://221.228.226.23/11/t/j/v/b/tjvbwspwhqdmgouolposcsfafpedmb/sh.yinyuetai.com/691201536EE4912BF7E4F1E2C67B8119.mp4";
     private String url_2 = "http://221.228.226.5/14/z/w/y/y/zwyyobhyqvmwslabxyoaixvyubmekc/sh.yinyuetai.com/4599015ED06F94848EBF877EAAE13886.mp4";
     private String url_3 = "http://221.228.226.5/15/t/s/h/v/tshvhsxwkbjlipfohhamjkraxuknsc/sh.yinyuetai.com/88DC015DB03C829C2126EEBBB5A887CB.mp4";
-    private String url_4 = "/storage/emulated/0/DCIM/fvmobile/test_video.mp4";
     List<String> urls = new ArrayList<>();
 
 
@@ -57,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
         urls.add(url_1);
         urls.add(url_2);
         urls.add(url_3);
-        urls.add(url_4);
 
         mPlayerManager = new PlayerManager(this);
         mPlayerManager.setFullScreenOnly(true);
@@ -86,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
         mVideoView = findViewById(R.id.up_player_view);
 
         mVideoView.setAspectRatio(IRenderView.AR_ASPECT_FIT_PARENT);
-        mVideoView.setVideoURI(Uri.parse(url_4));
+        mVideoView.setVideoURI(Uri.parse(url_2));
         mVideoView.start();
     }
 

@@ -327,28 +327,31 @@ public class PlayerManager implements View.OnClickListener {
             case R.id.last:
                 if (mCurrentPosition >= 1){
                     mCurrentPosition --;
-                    stop();
-                    videoView.releaseWithoutStop();
+                    statusChange(STATUS_COMPLETED);
+                    videoView.release(true);
+                    videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == 0){
                     Toast.makeText(activity,activity.getString(R.string.toast_at_first_video),Toast.LENGTH_LONG).show();
                 }else {
                     return;
                 }
+
                 break;
 
             case R.id.next:
                 if (mCurrentPosition < urls.size() - 1){
                     mCurrentPosition ++;
-                    stop();
-                    videoView.releaseWithoutStop();
-                    videoView.createPlayer(Settings.PV_PLAYER__IjkMediaPlayer);
+                    statusChange(STATUS_COMPLETED);
+                    videoView.release(true);
+                    videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == urls.size() - 1){
                     Toast.makeText(activity,activity.getString(R.string.toast_at_last_video),Toast.LENGTH_LONG).show();
                 }else {
                     return;
                 }
+
                 break;
         }
 
