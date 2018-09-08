@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
 import android.media.AudioManager;
+import android.os.Message;
+import android.provider.MediaStore;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
@@ -29,6 +31,10 @@ import com.ny.ijk.upplayer.R;
 import com.ny.ijk.upplayer.application.Settings;
 
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
@@ -96,6 +102,9 @@ public class PlayerManager implements View.OnClickListener {
     private String url;
     private List<String> urls;
     private int mCurrentPosition = 0;
+    private String mTotalStr = "00:00";
+    private String mPositionStr = "00:00";
+    private int mProgress = 0;
 
     private float brightness = -1;
     private int volume = -1;
@@ -249,6 +258,7 @@ public class PlayerManager implements View.OnClickListener {
         lastIv.setOnClickListener(this);
         playPauseIv.setOnClickListener(this);
         nextIv.setOnClickListener(this);
+
     }
 
     private int getScreenOrientation() {
@@ -328,7 +338,7 @@ public class PlayerManager implements View.OnClickListener {
                 if (mCurrentPosition >= 1){
                     mCurrentPosition --;
                     statusChange(STATUS_COMPLETED);
-                    videoView.release(true);
+                    videoView.release(false);
                     videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == 0){
@@ -343,7 +353,7 @@ public class PlayerManager implements View.OnClickListener {
                 if (mCurrentPosition < urls.size() - 1){
                     mCurrentPosition ++;
                     statusChange(STATUS_COMPLETED);
-                    videoView.release(true);
+                    videoView.release(false);
                     videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == urls.size() - 1){
@@ -463,22 +473,23 @@ public class PlayerManager implements View.OnClickListener {
     private void statusChange(int newStatus) {
         status = newStatus;
         if (!isLive && newStatus == STATUS_COMPLETED){
-            Log.d("upplayer","statusChange STATUS_COMPLETED...");
+            Log.e("upplayer","statusChange STATUS_COMPLETED...");
             if (playerStateListener != null){
                 playerStateListener.onComplete();
+                releaseProgressTimer();
             }
         }else if (newStatus == STATUS_ERROR){
-            Log.d("upplayer","statusChange STATUS_ERROR...");
+            Log.e("upplayer","statusChange STATUS_ERROR...");
             if (playerStateListener != null){
                 playerStateListener.onError();
             }
         }else if (newStatus == STATUS_LOADING){
-            Log.d("upplayer","statusChange STATUS_LOADING...");
+            Log.e("upplayer","statusChange STATUS_LOADING...");
             if (playerStateListener != null){
                 playerStateListener.onLoading();
             }
         }else if (newStatus == STATUS_PLAYING){
-            Log.d("upplayer","statusChange STATUS_PLAYING...");
+            Log.e("upplayer","statusChange STATUS_PLAYING...");
             if (playerStateListener != null){
                 playerStateListener.onPlay();
             }
@@ -512,6 +523,7 @@ public class PlayerManager implements View.OnClickListener {
     public void onDestroy(){
         orientationEventListener.disable();
         videoView.stopPlayback();
+        releaseProgressTimer();
     }
 
     public void play(String url){
@@ -520,6 +532,9 @@ public class PlayerManager implements View.OnClickListener {
             videoView.setVideoPath(url);
             videoView.start();
             status = STATUS_PLAYING;
+
+            startProgressTimer();
+
         }
     }
 
@@ -691,6 +706,74 @@ public class PlayerManager implements View.OnClickListener {
         }
         return false;
     }
+
+    public class ProgressTimerTask extends TimerTask{
+
+        @Override
+        public void run() {
+            if (status == STATUS_PLAYING || status == STATUS_PAUSE){
+                String total = generateTime(getDuration());
+                String current = generateTime(getCurrentPosition());
+                int position = 0;
+                int duration = 0;
+                if (!total.equals("00:00")){
+                    mTotalStr = total;
+                    duration = getDuration();
+                    Log.e("NTesting","11111");
+                }
+                if (!current.equals("00:00")){
+                    mPositionStr = current;
+                    position = getCurrentPosition();
+                    Log.e("NTesting","222");
+                }
+                if (duration != 0 && position != 0){
+                    mProgress = getCurrentPosition() * 100 / getDuration();
+                    Log.e("NTesting","3333");
+                    Log.e("upplayer","--mPositionStr--"+mPositionStr+"--mTotalStr--"+mTotalStr+"--progress--"+mPositionStr);
+                }
+                mTimeHandler.sendEmptyMessage(UPDATE_TIME_AND_PROGRESS);
+
+            }
+        }
+    }
+
+
+    protected static Timer UPDATE_PROGRESS_TIMER;
+    protected ProgressTimerTask mProgressTimerTask;
+
+    public void startProgressTimer(){
+        UPDATE_PROGRESS_TIMER = new Timer();
+        mProgressTimerTask = new ProgressTimerTask();
+        UPDATE_PROGRESS_TIMER.schedule(mProgressTimerTask,0,300);
+    }
+    public void releaseProgressTimer(){
+        UPDATE_PROGRESS_TIMER = null;
+        mProgressTimerTask = null;
+        mTotalStr = "00:00";
+        mPositionStr = "00:00";
+        mProgress = 0;
+        mTimeHandler.removeMessages(UPDATE_TIME_AND_PROGRESS);
+    }
+
+    private static final int UPDATE_TIME_AND_PROGRESS = 1;
+    private android.os.Handler mTimeHandler = new android.os.Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what){
+                case UPDATE_TIME_AND_PROGRESS:
+                    changeTimeAndProgress();
+                    break;
+            }
+        }
+    };
+
+    private void changeTimeAndProgress() {
+        totalTv.setText(mTotalStr);
+        currentTv.setText(mPositionStr);
+        bottomSeekBar.setProgress(mProgress);
+    }
+
 
     class Query{
         private final Activity activity;
