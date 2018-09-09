@@ -142,7 +142,12 @@ public class PlayerManager implements View.OnClickListener {
     private OnCompleteListener onCompleteListener = new OnCompleteListener() {
         @Override
         public void onComplete() {
-
+            releaseProgressTimer();
+            startIv.setImageResource(R.mipmap.up_play_mid);
+            playPauseIv.setImageResource(R.mipmap.up_play);
+            statusChange(STATUS_COMPLETED);
+            stop();
+            releaseProgressTimer();
         }
     };
 
@@ -246,6 +251,7 @@ public class PlayerManager implements View.OnClickListener {
         totalTv = activity.findViewById(R.id.total);
 
         bottomSeekBar = activity.findViewById(R.id.bottom_seek_progress);
+        bottomSeekBar.setOnSeekBarChangeListener(seekBarChangeListener);
 
         backIv = activity.findViewById(R.id.back);
         startIv = activity.findViewById(R.id.start);
@@ -260,6 +266,23 @@ public class PlayerManager implements View.OnClickListener {
         nextIv.setOnClickListener(this);
 
     }
+
+    private SeekBar.OnSeekBarChangeListener seekBarChangeListener = new SeekBar.OnSeekBarChangeListener() {
+        @Override
+        public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+            currentTv.setText(generateTime((seekBar.getProgress() * getDuration() / 100)));
+        }
+
+        @Override
+        public void onStartTrackingTouch(SeekBar seekBar) {
+
+        }
+
+        @Override
+        public void onStopTrackingTouch(SeekBar seekBar) {
+            videoView.seekTo((seekBar.getProgress() * getDuration() / 100));
+        }
+    };
 
     private int getScreenOrientation() {
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
@@ -332,6 +355,13 @@ public class PlayerManager implements View.OnClickListener {
                     playPauseIv.setImageResource(R.mipmap.up_pause);
                     statusChange(STATUS_PLAYING);
                     videoView.start();
+                }else if (status == STATUS_COMPLETED){
+                    startIv.setImageResource(R.mipmap.up_pause_mid);
+                    playPauseIv.setImageResource(R.mipmap.up_pause);
+                    statusChange(STATUS_PLAYING);
+                    videoView.release(false);
+                    videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
+                    play(urls.get(mCurrentPosition));
                 }
                 break;
             case R.id.last:
@@ -340,6 +370,7 @@ public class PlayerManager implements View.OnClickListener {
                     statusChange(STATUS_COMPLETED);
                     videoView.release(false);
                     videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
+                    releaseProgressTimer();
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == 0){
                     Toast.makeText(activity,activity.getString(R.string.toast_at_first_video),Toast.LENGTH_LONG).show();
@@ -355,6 +386,7 @@ public class PlayerManager implements View.OnClickListener {
                     statusChange(STATUS_COMPLETED);
                     videoView.release(false);
                     videoView.setRender(videoView.RENDER_TEXTURE_VIEW);
+                    releaseProgressTimer();
                     play(urls.get(mCurrentPosition));
                 }else if (mCurrentPosition == urls.size() - 1){
                     Toast.makeText(activity,activity.getString(R.string.toast_at_last_video),Toast.LENGTH_LONG).show();
@@ -370,6 +402,7 @@ public class PlayerManager implements View.OnClickListener {
     public void play(List<String> urls, int defaultUrl) {
         this.urls = urls;
         play(urls.get(defaultUrl));
+        mCurrentPosition = defaultUrl;
     }
 
     public class PlayGestureListener extends GestureDetector.SimpleOnGestureListener{
@@ -482,6 +515,7 @@ public class PlayerManager implements View.OnClickListener {
             Log.e("upplayer","statusChange STATUS_ERROR...");
             if (playerStateListener != null){
                 playerStateListener.onError();
+                releaseProgressTimer();
             }
         }else if (newStatus == STATUS_LOADING){
             Log.e("upplayer","statusChange STATUS_LOADING...");
@@ -719,17 +753,14 @@ public class PlayerManager implements View.OnClickListener {
                 if (!total.equals("00:00")){
                     mTotalStr = total;
                     duration = getDuration();
-                    Log.e("NTesting","11111");
                 }
                 if (!current.equals("00:00")){
                     mPositionStr = current;
                     position = getCurrentPosition();
-                    Log.e("NTesting","222");
                 }
                 if (duration != 0 && position != 0){
                     mProgress = getCurrentPosition() * 100 / getDuration();
-                    Log.e("NTesting","3333");
-                    Log.e("upplayer","--mPositionStr--"+mPositionStr+"--mTotalStr--"+mTotalStr+"--progress--"+mPositionStr);
+//                    Log.e("upplayer","--mPositionStr--"+mPositionStr+"--mTotalStr--"+mTotalStr+"--progress--"+mPositionStr);
                 }
                 mTimeHandler.sendEmptyMessage(UPDATE_TIME_AND_PROGRESS);
 

@@ -155,12 +155,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1.0"
-            android:background="@null"
             android:max="100"
             android:maxHeight="3dp"
             android:minHeight="3dp"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
+            android:padding="10dp"
             android:progressDrawable="@drawable/up_bottom_seek_progress"
             android:thumb="@mipmap/up_bottom_seekbar_thumb" />
 
