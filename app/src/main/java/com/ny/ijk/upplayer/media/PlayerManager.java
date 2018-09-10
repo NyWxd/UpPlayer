@@ -1,23 +1,27 @@
 package com.ny.ijk.upplayer.media;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
 import android.media.AudioManager;
+import android.os.Build;
+import android.os.CountDownTimer;
 import android.os.Message;
-import android.provider.MediaStore;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.GestureDetector;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -28,13 +32,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.ny.ijk.upplayer.R;
-import com.ny.ijk.upplayer.application.Settings;
 
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
 
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
@@ -46,7 +47,7 @@ import tv.danmaku.ijk.media.player.pragma.DebugLog;
  * copy by niuyuan on 2018/9/1.
  */
 
-public class PlayerManager implements View.OnClickListener {
+public class PlayerManager implements View.OnClickListener{
 
     /**
      * 可能会剪裁，保持原视频大小，显示在中心，当原视频的大小超过view的大小，超过部分裁剪处理
@@ -105,6 +106,7 @@ public class PlayerManager implements View.OnClickListener {
     private String mTotalStr = "00:00";
     private String mPositionStr = "00:00";
     private int mProgress = 0;
+    private boolean mControlVisiable = true;
 
     private float brightness = -1;
     private int volume = -1;
@@ -124,6 +126,21 @@ public class PlayerManager implements View.OnClickListener {
     private TextView currentTv;
     private SeekBar bottomSeekBar;
     private TextView totalTv;
+
+    private View playerContent;
+
+    //手势弹窗
+    private Dialog mProgressDialog;
+    private ProgressBar mDialogProgressBar;
+    private TextView mDialogSeekTimeTv;
+    private TextView mDialogTotalTimeTv;
+    private ImageView mDialogIconIv;
+    private Dialog mVolumeDialog;
+    private ProgressBar mDialogVolumeProgressBar;
+    private TextView mDialogVolumeTv;
+    private Dialog mBrightnessDialog;
+    private ProgressBar mDialogBrightnessProgressBar;
+    private TextView mDialogBrightnessTv;
 
     private OrientationEventListener orientationEventListener;
     private PlayerStateListener playerStateListener;
@@ -239,6 +256,56 @@ public class PlayerManager implements View.OnClickListener {
 
         //初始化播控
         initControlView();
+
+        playerContent = activity.findViewById(R.id.player_content);
+        playerContent.setClickable(true);
+        playerContent.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                if (gestureDetector.onTouchEvent(motionEvent))
+                    return true;
+                switch (motionEvent.getAction() & MotionEvent.ACTION_MASK){
+                    case MotionEvent.ACTION_UP:
+                        dismissmBrightnessDialog();
+                        dismissVolumeDialog();
+                        dismissProgressDialog();
+                        break;
+                }
+                return false;
+            }
+        });
+
+        final boolean isPortrait = getScreenOrientation() == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        orientationEventListener = new OrientationEventListener(activity) {
+            @Override
+            public void onOrientationChanged(int orientation) {
+                if (orientation >= 0 && orientation <= 30 || orientation >= 330 || (orientation >= 150 && orientation <= 210)){
+                    //竖屏
+                    if (isPortrait){
+                        activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+                        orientationEventListener.disable();
+                    }
+                }else if ((orientation >= 90 && orientation <= 120) || (orientation >= 240 && orientation <= 300)){
+                    if (!isPortrait){
+                        activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+                        orientationEventListener.disable();
+                    }
+                }
+            }
+        };
+
+        orientationEventListener.enable();
+
+        if ( Build.VERSION.SDK_INT >= 19) {
+            View decorView = activity.getWindow().getDecorView();
+            decorView.setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
     }
 
     //editing
@@ -410,6 +477,7 @@ public class PlayerManager implements View.OnClickListener {
         private boolean volumeControl;
         private boolean toSeek;
 
+
         /**
          * 双击
          * */
@@ -423,6 +491,7 @@ public class PlayerManager implements View.OnClickListener {
             firstTouch = true;
             return super.onDown(e);
         }
+
 
         /**
          * 滑动
@@ -459,8 +528,18 @@ public class PlayerManager implements View.OnClickListener {
 
         @Override
         public boolean onSingleTapUp(MotionEvent e) {
+            //单击，隐藏或显示控制控件
+            controlViewTimer.start();
+            if (mControlVisiable){
+                setControlViewVisiable(false);
+                controlViewTimer.cancel();
+            }else {
+                setControlViewVisiable(true);
+                controlViewTimer.start();
+            }
             return true;
         }
+
     }
 
     /**
@@ -554,6 +633,31 @@ public class PlayerManager implements View.OnClickListener {
         }
     }
 
+    private CountDownTimer controlViewTimer = new CountDownTimer(5000,1000) {
+        @Override
+        public void onTick(long millisUntilFinished) {
+        }
+
+        @Override
+        public void onFinish() {
+            //editing 20180910 倒计时结束，隐藏掉控制控件
+            setControlViewVisiable(false);
+        }
+    };
+
+    private void setControlViewVisiable(boolean isVisiable) {
+        int visibility;
+        if (isVisiable){
+            visibility = View.VISIBLE;
+            mControlVisiable = true;
+        }else {
+            visibility = View.GONE;
+            mControlVisiable = false;
+        }
+        startLl.setVisibility(visibility);
+        bottomLl.setVisibility(visibility);
+    }
+
     public void onDestroy(){
         orientationEventListener.disable();
         videoView.stopPlayback();
@@ -568,7 +672,8 @@ public class PlayerManager implements View.OnClickListener {
             status = STATUS_PLAYING;
 
             startProgressTimer();
-
+            //开始播放，倒计时隐藏掉控制控件
+            controlViewTimer.start();
         }
     }
 
@@ -585,6 +690,9 @@ public class PlayerManager implements View.OnClickListener {
      * @param percent
      * */
     private void onVolumeSlide(float percent){
+        //隐藏掉控制控件
+        setControlViewVisiable(false);
+
         if (volume == -1){
             volume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
             if (volume < 0){
@@ -601,6 +709,10 @@ public class PlayerManager implements View.OnClickListener {
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,index,0);
         //变更进度条
         int i = (int) (index  * 1.0 / mMaxVolume *100);
+
+        //显示调节音量的弹窗
+        showVolumeDialog(i);
+
         String s = i +"%";
         if (i == 0){
             s = "off";
@@ -613,6 +725,9 @@ public class PlayerManager implements View.OnClickListener {
      * @param percent
      * */
     private void onProgressSlide(float percent){
+        //隐藏掉控制控件
+        setControlViewVisiable(false);
+
         long position = videoView.getCurrentPosition();
         long duration = videoView.getDuration();
         long deltaMax = Math.min(100  * 1000,duration - position);
@@ -628,7 +743,11 @@ public class PlayerManager implements View.OnClickListener {
         }
 
         int showDelta = (int) (delta / 100);
+
+        //显示出进度调节dialog，根据showDelta正负来确定显示快退还是快进图标
+        showProgressDialog(showDelta,(int)(position * 100 / duration));
         Log.e("upplayer","showDelta: "+showDelta);
+
         if (showDelta != 0){
             String text = showDelta > 0 ? ("+"+showDelta) : "" + showDelta;
             videoView.seekTo((int) newPosition);
@@ -636,11 +755,121 @@ public class PlayerManager implements View.OnClickListener {
         }
     }
 
+
+//    //手势弹窗
+//    private Dialog mBrightnessDialog;
+//    private ProgressBar mDialogBrightnessProgressBar;
+//    private TextView mDialogBrightnessTv;
+//    private ImageView mDialogBrightnessIconIv;
+
+    private void showmBrightnessDialog(int brightnessPercent) {
+        if (mBrightnessDialog == null){
+            View localview = LayoutInflater.from(activity).inflate(R.layout.up_dialog_brightness,null);
+            mDialogBrightnessProgressBar = localview.findViewById(R.id.brightness_progressbar);
+            mDialogBrightnessTv = localview.findViewById(R.id.tv_brightness);
+            mBrightnessDialog = createDialogWithView(localview);
+        }
+
+        if (!mBrightnessDialog.isShowing()){
+            mBrightnessDialog.show();
+        }
+
+        if (brightnessPercent > 100){
+            brightnessPercent = 100;
+        }else if (brightnessPercent < 0){
+            brightnessPercent = 0;
+        }
+
+        mDialogBrightnessTv.setText(brightnessPercent + "%");
+        mDialogBrightnessProgressBar.setProgress(brightnessPercent);
+
+    }
+
+    private void dismissmBrightnessDialog(){
+        if (mBrightnessDialog != null){
+            mBrightnessDialog.dismiss();
+        }
+    }
+
+    private void showVolumeDialog(int volumePercent) {
+        if (mVolumeDialog == null){
+            View localview = LayoutInflater.from(activity).inflate(R.layout.up_dialog_volume,null);
+            mDialogVolumeProgressBar = localview.findViewById(R.id.volume_progressbar);
+            mDialogVolumeTv = localview.findViewById(R.id.tv_volume);
+            mVolumeDialog = createDialogWithView(localview);
+        }
+
+        if (!mVolumeDialog.isShowing()){
+            mVolumeDialog.show();
+        }
+
+        if (volumePercent > 100){
+            volumePercent = 100;
+        }else if (volumePercent < 0){
+            volumePercent = 0;
+        }
+
+        mDialogVolumeTv.setText(volumePercent + "%");
+        mDialogVolumeProgressBar.setProgress(volumePercent);
+    }
+
+    private void dismissVolumeDialog(){
+        if (mVolumeDialog != null){
+            mVolumeDialog.dismiss();
+        }
+    }
+
+    private void showProgressDialog(int showDelta, int progress) {
+        if (mProgressDialog == null){
+            View localview = LayoutInflater.from(activity).inflate(R.layout.up_dialog_progress,null);
+            mDialogProgressBar = localview.findViewById(R.id.duration_progressbar);
+            mDialogSeekTimeTv = localview.findViewById(R.id.tv_current);
+            mDialogTotalTimeTv = localview.findViewById(R.id.tv_duration);
+            mDialogIconIv = localview.findViewById(R.id.duration_image_tip);
+            mProgressDialog = createDialogWithView(localview);
+        }
+
+        if (!mProgressDialog.isShowing()){
+            mProgressDialog.show();
+        }
+
+        mDialogSeekTimeTv.setText(generateTime((progress * getDuration() / 100)));
+        mDialogTotalTimeTv.setText(totalTv.getText());
+        mDialogProgressBar.setProgress(progress);
+        if (showDelta > 0){
+            mDialogIconIv.setBackgroundResource(R.mipmap.up_forward_icon);
+        }else {
+            mDialogIconIv.setBackgroundResource(R.mipmap.up_backward_icon);
+        }
+    }
+
+    private void dismissProgressDialog(){
+        if (mProgressDialog != null){
+            mProgressDialog.dismiss();
+        }
+    }
+
+    private Dialog createDialogWithView(View localview) {
+        Dialog dialog = new Dialog(activity,R.style.up_style_dialog_progress);
+        dialog.setContentView(localview);
+        Window window = dialog.getWindow();
+        window.addFlags(Window.FEATURE_ACTION_BAR);
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+        window.setLayout(-2,-2);
+        WindowManager.LayoutParams localLayoutParams = window.getAttributes();
+        window.setAttributes(localLayoutParams);
+        return dialog;
+    }
+
     /**
      * 滑动改变亮度
      * @param percent
      * */
     private void onBrightnessSlide(float percent){
+        //隐藏掉控制控件
+        setControlViewVisiable(false);
+
         if (brightness < 0){
             brightness = activity.getWindow().getAttributes().screenBrightness;
             if (brightness <= 0.00f){
@@ -658,6 +887,8 @@ public class PlayerManager implements View.OnClickListener {
             lpa.screenBrightness = 0.01f;
         }
         activity.getWindow().setAttributes(lpa);
+        //显示调节亮度的弹窗
+        showmBrightnessDialog((int)((brightness + percent) * 100));
     }
 
     public void setFullScreenOnly(boolean fullScreenOnly){
@@ -691,6 +922,7 @@ public class PlayerManager implements View.OnClickListener {
                 attrs.flags |= WindowManager.LayoutParams.FLAG_FULLSCREEN;
                 activity.getWindow().setAttributes(attrs);
                 activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
             }else {
                 attrs.flags &= (~WindowManager.LayoutParams.FLAG_FULLSCREEN);
                 activity.getWindow().setAttributes(attrs);

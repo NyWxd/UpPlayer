@@ -1,11 +1,14 @@
 package com.ny.ijk.upplayer.ui;
 
+import android.content.res.Configuration;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
 
 import com.ny.ijk.upplayer.R;
 import com.ny.ijk.upplayer.media.IRenderView;
@@ -32,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.player_content);
 
         //这是普通的仅播放
 //        initView();
@@ -66,22 +69,8 @@ public class MainActivity extends AppCompatActivity {
         mPlayerManager.live(false);
         mPlayerManager.setScaleType(PlayerManager.SCALETYPE_WRAPCONTENT);
         mPlayerManager.playerInFullScreen(true);
-//        mPlayerManager.play(url_2);
         mPlayerManager.play(urls,1);
-        IjkVideoView videoView = mPlayerManager.getVideoView();
-        videoView.setOnInfoListener(new IMediaPlayer.OnInfoListener() {
-            @Override
-            public boolean onInfo(IMediaPlayer iMediaPlayer, int i, int i1) {
-                switch (i){
-                    case MediaPlayer.MEDIA_INFO_BUFFERING_START:
-                        break;
-                    case MediaPlayer.MEDIA_INFO_BUFFERING_END:
-                    case MediaPlayer.MEDIA_INFO_VIDEO_TRACK_LAGGING:
-                        break;
-                }
-                return false;
-            }
-        });
+
     }
 
     private void initView() {
@@ -103,4 +92,25 @@ public class MainActivity extends AppCompatActivity {
         mPlayerManager.onResume();
         super.onResume();
     }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+    }
+
+//    @Override
+//    public void onWindowFocusChanged(boolean hasFocus) {
+//        super.onWindowFocusChanged(hasFocus);
+//        if (hasFocus && Build.VERSION.SDK_INT >= 19) {
+//            View decorView = getWindow().getDecorView();
+//            decorView.setSystemUiVisibility(
+//                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+//                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+//                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+//                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+//                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+//                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+//        }
+//    }
+
 }
